@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MindfulAI</title>
+  <meta name="description" content="Privacy-first mood check-ins with AI coaching. Stored locally by default." />
+
+  <!-- Social previews -->
+  <meta property="og:title" content="MindfulAI" />
+  <meta property="og:description" content="Privacy-first mood check-ins with AI coaching. Stored locally by default." />
+  <meta property="og:type" content="website" />
+  <meta name="theme-color" content="#0b1020" />
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    /* --- OpenAI-tier polish: calmer, darker, cleaner, less carnival --- */
+    :root{
+      --bg0:#070A13;
+      --bg1:#0B1020;
+      --card:rgba(255,255,255,.06);
+      --card2:rgba(255,255,255,.08);
+      --border:rgba(255,255,255,.10);
+      --text:#EAF0FF;
+      --muted:rgba(234,240,255,.70);
+      --muted2:rgba(234,240,255,.55);
+      --accent:#7C5CFF;
+      --accent2:#38BDF8;
+      --danger:#EF4444;
+      --shadow: 0 20px 70px rgba(0,0,0,.45);
+      --shadow2: 0 10px 30px rgba(0,0,0,.35);
+    }
+
+    html, body { height: 100%; }
+
+    body {
+      color: var(--text);
+      background:
+        radial-gradient(1100px 600px at 20% 15%, rgba(124,92,255,.20), transparent 60%),
+        radial-gradient(900px 520px at 80% 30%, rgba(56,189,248,.14), transparent 62%),
+        radial-gradient(800px 520px at 50% 90%, rgba(124,92,255,.10), transparent 60%),
+        linear-gradient(180deg, var(--bg0), var(--bg1));
+    }
+
+    /* Subtle grain */
+    .grain::before{
+      content:"";
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      opacity: .06;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='260' height='260'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='260' height='260' filter='url(%23n)' opacity='.4'/%3E%3C/svg%3E");
+      mix-blend-mode: overlay;
+    }
+
+    /* Glass card */
+    .glass {
+      background: linear-gradient(180deg, rgba(255,255,255,.085), rgba(255,255,255,.045));
+      border: 1px solid var(--border);
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(14px);
+    }
+
+    .glass-soft {
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.09);
+      box-shadow: var(--shadow2);
+      backdrop-filter: blur(10px);
+    }
+
+    /* Animations (minimal, purposeful) */
+    @keyframes fadeUp {
+      from { opacity: 0; transform: translateY(10px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+    .fade-up { animation: fadeUp .55s ease-out both; }
+
+    @keyframes pulseRing {
+      0% { transform: scale(.98); box-shadow: 0 0 0 0 rgba(239,68,68,.32); }
+      70% { transform: scale(1.02); box-shadow: 0 0 0 18px rgba(239,68,68,0); }
+      100% { transform: scale(.98); box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+    }
+    .pulse-ring { animation: pulseRing 1.7s ease-in-out infinite; }
+
+    /* Buttons */
+    .btn {
+      border: 1px solid rgba(255,255,255,.10);
+      background: rgba(255,255,255,.08);
+      transition: transform .12s ease, background .12s ease, border-color .12s ease;
+    }
+    .btn:hover { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.18); }
+    .btn:active { transform: translateY(1px); }
+
+    .btn-primary{
+      background: linear-gradient(135deg, rgba(124,92,255,.95), rgba(56,189,248,.70));
+      border: 1px solid rgba(255,255,255,.14);
+      color: #081026;
+    }
+    .btn-primary:hover { filter: brightness(1.02); }
+
+    /* Message bubble */
+    .bubble-ai{
+      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(255,255,255,.10);
+    }
+    .bubble-user{
+      background: rgba(255,255,255,.92);
+      color: #0B1020;
+      border: 1px solid rgba(255,255,255,.35);
+    }
+
+    /* Focus rings */
+    *:focus { outline: none; }
+    .focus-ring:focus {
+      box-shadow: 0 0 0 4px rgba(124,92,255,.25);
+      border-color: rgba(124,92,255,.45);
+    }
+
+    /* Nice scrollbars */
+    ::-webkit-scrollbar { width: 10px; }
+    ::-webkit-scrollbar-track { background: rgba(255,255,255,.04); }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 20px; }
+    ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,.18); }
+
+    /* Reduced motion */
+    @media (prefers-reduced-motion: reduce) {
+      .fade-up, .pulse-ring { animation: none !important; }
+      .btn { transition: none !important; }
+    }
+  </style>
+</head>
+
+<body class="grain">
+  <div class="min-h-screen">
+    <div class="mx-auto max-w-5xl px-4 sm:px-6 py-10 sm:py-14">
+      <!-- Top bar -->
+      <div class="flex items-center justify-between mb-10 fade-up">
+        <div class="flex items-center gap-3">
+          <div class="h-10 w-10 rounded-xl glass-soft flex items-center justify-center">
+            <span class="text-xl">🧠</span>
+          </div>
+          <div>
+            <div class="text-white font-semibold tracking-tight leading-none">MindfulAI</div>
+            <div class="text-[12px] text-white/60">Private by default. Coach, not clinician.</div>
+          </div>
+        </div>
+
+        <div class="hidden sm:flex items-center gap-2">
+          <span class="text-xs text-white/60">Stored locally</span>
+          <span class="h-1 w-1 rounded-full bg-white/30"></span>
+          <span class="text-xs text-white/60">Not medical advice</span>
+        </div>
+      </div>
+
+      <!-- Hero -->
+      <div class="text-center mb-10 fade-up" style="animation-delay:.05s">
+        <h1 class="text-4xl sm:text-5xl font-semibold tracking-tight text-white">
+          A calmer check-in. A sharper next step.
+        </h1>
+        <p class="mt-3 text-base sm:text-lg text-white/70 max-w-2xl mx-auto">
+          Privacy-first mood check-ins with concise AI coaching and lightweight insights.
+        </p>
+
+        <!-- Trust chips -->
+        <div class="mt-6 flex flex-wrap justify-center gap-2">
+          <div class="glass-soft rounded-full px-3 py-1 text-xs text-white/70 border border-white/10">
+            🔒 Local storage by default
+          </div>
+          <div class="glass-soft rounded-full px-3 py-1 text-xs text-white/70 border border-white/10">
+            🧭 Micro-actions, not diagnosis
+          </div>
+          <div class="glass-soft rounded-full px-3 py-1 text-xs text-white/70 border border-white/10">
+            🛟 Crisis routing supported
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Card -->
+      <div class="glass rounded-3xl p-5 sm:p-8 fade-up" style="animation-delay:.10s">
+        <!-- Mood Section -->
+        <section id="moodSection" class="mb-6">
+          <div class="flex items-start justify-between gap-4 mb-5">
+            <div>
+              <h2 class="text-xl sm:text-2xl font-semibold text-white tracking-tight">How are you feeling today?</h2>
+              <p class="text-sm text-white/60 mt-1">Pick one. We’ll keep it simple.</p>
+            </div>
+            <div class="hidden sm:block text-xs text-white/50">
+              Tip: daily check-ins improve signal.
+            </div>
+          </div>
+
+          <div class="grid grid-cols-2 sm:grid-cols-5 gap-3">
+            <button onclick="selectMood('amazing','🤩')" class="btn rounded-2xl p-4 text-left hover:translate-y-[-1px]">
+              <div class="text-3xl">🤩</div>
+              <div class="mt-2 text-white font-medium">Amazing</div>
+              <div class="text-xs text-white/55 mt-1">High energy</div>
+            </button>
+
+            <button onclick="selectMood('good','😊')" class="btn rounded-2xl p-4 text-left hover:translate-y-[-1px]">
+              <div class="text-3xl">😊</div>
+              <div class="mt-2 text-white font-medium">Good</div>
+              <div class="text-xs text-white/55 mt-1">Steady</div>
+            </button>
+
+            <button onclick="selectMood('okay','😐')" class="btn rounded-2xl p-4 text-left hover:translate-y-[-1px]">
+              <div class="text-3xl">😐</div>
+              <div class="mt-2 text-white font-medium">Okay</div>
+              <div class="text-xs text-white/55 mt-1">Neutral</div>
+            </button>
+
+            <button onclick="selectMood('down','😔')" class="btn rounded-2xl p-4 text-left hover:translate-y-[-1px]">
+              <div class="text-3xl">😔</div>
+              <div class="mt-2 text-white font-medium">Down</div>
+              <div class="text-xs text-white/55 mt-1">Low mood</div>
+            </button>
+
+            <button onclick="selectMood('anxious','😰')" class="btn rounded-2xl p-4 text-left hover:translate-y-[-1px]">
+              <div class="text-3xl">😰</div>
+              <div class="mt-2 text-white font-medium">Anxious</div>
+              <div class="text-xs text-white/55 mt-1">Overactive mind</div>
+            </button>
+          </div>
+
+          <div class="mt-5 flex items-center justify-between gap-3 text-xs text-white/55">
+            <div class="flex items-center gap-2">
+              <span class="inline-flex h-2 w-2 rounded-full bg-emerald-300/70"></span>
+              Local-only session logging (browser storage)
+            </div>
+            <div class="hidden sm:block">
+              Data controls available after insights.
+            </div>
+          </div>
+        </section>
+
+        <!-- Chat Section -->
+        <section id="chatSection" class="hidden">
+          <div class="flex items-center justify-between mb-4">
+            <div>
+              <div class="text-sm text-white/70">Session</div>
+              <div class="text-xl font-semibold text-white tracking-tight">Check-in chat</div>
+            </div>
+
+            <button onclick="startNewSession()" class="btn rounded-xl px-3 py-2 text-sm text-white/80">
+              Reset
+            </button>
+          </div>
+
+          <div class="glass-soft rounded-2xl p-4 sm:p-5 mb-4 h-[26rem] overflow-y-auto" id="chatMessages">
+            <!-- messages injected by app.js -->
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-[auto,1fr,auto] gap-3 items-center">
+            <!-- Voice (demo) -->
+            <div class="flex justify-center sm:justify-start">
+              <button id="voiceBtn" onclick="toggleVoice()"
+                class="btn rounded-2xl px-4 py-3 text-white/90 flex items-center gap-2">
+                <span class="inline-flex h-9 w-9 rounded-xl bg-white/10 items-center justify-center border border-white/10">
+                  <svg class="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M7 4a3 3 0 016 0v4a3 3 0 11-6 0V4zm4 10.93A7.001 7.001 0 0017 8a1 1 0 10-2 0A5 5 0 015 8a1 1 0 00-2 0 7.001 7.001 0 006 6.93V17H6a1 1 0 100 2h8a1 1 0 100-2h-3v-2.07z" clip-rule="evenodd"></path>
+                  </svg>
+                </span>
+                <span class="text-sm">Voice (demo)</span>
+              </button>
+            </div>
+
+            <!-- Input -->
+            <input
+              type="text"
+              id="messageInput"
+              placeholder="Type what’s on your mind…"
+              class="focus-ring w-full px-4 py-3 rounded-2xl bg-white/5 text-white placeholder-white/40 border border-white/10"
+              autocomplete="off"
+            />
+
+            <!-- Send -->
+            <button onclick="sendMessage()"
+              class="btn-primary rounded-2xl px-5 py-3 font-semibold tracking-tight shadow-sm">
+              Send
+            </button>
+          </div>
+
+          <div class="mt-3 text-xs text-white/55 flex flex-wrap items-center gap-2">
+            <span class="glass-soft px-2 py-1 rounded-lg border border-white/10">Coach, not clinician</span>
+            <span>In crisis, see resources at the bottom.</span>
+          </div>
+        </section>
+
+        <!-- Insights Section -->
+        <section id="insightsSection" class="hidden">
+          <div class="flex items-start justify-between gap-4 mb-6">
+            <div>
+              <h2 class="text-2xl font-semibold text-white tracking-tight">Insights</h2>
+              <p class="text-sm text-white/60 mt-1">Lightweight signal from your last 7 days.</p>
+            </div>
+
+            <div class="flex gap-2">
+              <button onclick="startNewSession()" class="btn rounded-xl px-3 py-2 text-sm text-white/80">
+                New check-in
+              </button>
+              <button onclick="clearLocalData()" class="btn rounded-xl px-3 py-2 text-sm text-white/80">
+                Delete data
+              </button>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div class="glass-soft rounded-2xl p-6">
+              <div class="text-sm text-white/60">Mood trend (7 days)</div>
+              <div class="text-3xl sm:text-4xl font-semibold text-white mt-2" id="moodTrend">📊 Not enough data</div>
+              <div class="text-sm text-white/60 mt-2">Daily check-ins improve trend quality.</div>
+            </div>
+
+            <div class="glass-soft rounded-2xl p-6">
+              <div class="text-sm text-white/60">Check-in streak</div>
+              <div class="text-3xl sm:text-4xl font-semibold text-white mt-2" id="streak">0 days</div>
+              <div class="text-sm text-white/60 mt-2">Consistency compounds calm.</div>
+            </div>
+          </div>
+
+          <div class="glass-soft rounded-2xl p-6">
+            <div class="flex items-center justify-between mb-3">
+              <h3 class="text-lg font-semibold text-white">Recommendations</h3>
+              <span class="text-xs text-white/50">Rule-based, local</span>
+            </div>
+            <div id="recommendations" class="space-y-3"></div>
+          </div>
+
+          <div class="mt-5 text-xs text-white/50">
+            Data is stored locally in your browser. Deleting data removes saved sessions from this device only.
+          </div>
+        </section>
+      </div>
+
+      <!-- Feature row -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mt-8 fade-up" style="animation-delay:.14s">
+        <div class="glass-soft rounded-2xl p-6">
+          <div class="text-sm text-white/60">Coaching</div>
+          <div class="mt-2 text-white font-semibold">Micro-actions over monologues</div>
+          <div class="mt-2 text-sm text-white/60">Short responses. One next step. Less noise.</div>
+        </div>
+
+        <div class="glass-soft rounded-2xl p-6">
+          <div class="text-sm text-white/60">Privacy</div>
+          <div class="mt-2 text-white font-semibold">Local-first session tracking</div>
+          <div class="mt-2 text-sm text-white/60">Stored locally by default. You control deletion.</div>
+        </div>
+
+        <div class="glass-soft rounded-2xl p-6">
+          <div class="text-sm text-white/60">Signal</div>
+          <div class="mt-2 text-white font-semibold">Trends you can act on</div>
+          <div class="mt-2 text-sm text-white/60">Streak, trend, and simple recommendations.</div>
+        </div>
+      </div>
+
+      <!-- Crisis resources -->
+      <div class="glass-soft rounded-2xl p-6 mt-8 text-center fade-up" style="animation-delay:.18s">
+        <p class="text-sm text-white/60 mb-2">In crisis? Please reach out immediately.</p>
+        <p class="text-white font-semibold">US: 988 Suicide & Crisis Lifeline</p>
+        <p class="text-xs text-white/55 mt-2">If outside the US, contact your local emergency number or a trusted person nearby.</p>
+      </div>
+
+      <!-- Footer -->
+      <div class="mt-10 text-center text-xs text-white/45">
+        MindfulAI is a wellness tool, not a medical service.
+      </div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+
+  <!-- Small compatibility note:
+       app.js uses selectMood(), sendMessage(), toggleVoice(), showInsights(), clearLocalData(), startNewSession() -->
+</body>
+</html>
